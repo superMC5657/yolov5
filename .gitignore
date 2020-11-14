@@ -26,8 +26,8 @@
 storage.googleapis.com
 runs/*
 data/*
-!data/samples/zidane.jpg
-!data/samples/bus.jpg
+!data/images/zidane.jpg
+!data/images/bus.jpg
 !data/coco.names
 !data/coco_paper.names
 !data/coco.data
@@ -50,6 +50,7 @@ gcp_test*.sh
 *.pt
 *.onnx
 *.mlmodel
+*.torchscript
 darknet53.conv.74
 yolov3-tiny.conv.15
 
@@ -139,9 +140,9 @@ celerybeat-schedule
 .env
 
 # virtualenv
-.venv
-venv/
-ENV/
+.venv*
+venv*/
+ENV*/
 
 # Spyder project settings
 .spyderproject
