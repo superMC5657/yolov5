@@ -70,7 +70,7 @@ def compute_loss(p, targets, model):  # predictions, targets, model
     BCEobj = nn.BCEWithLogitsLoss(pos_weight=torch.Tensor([h['obj_pw']])).to(device)
 
     # Class label smoothing https://arxiv.org/pdf/1902.04103.pdf eqn 3
-    cp, cn = smooth_BCE(eps=h['label_smoothing'])
+    cp, cn = smooth_BCE(eps=h['label_smooth'])
 
     # Focal loss
     g = h['fl_gamma']  # focal loss gamma

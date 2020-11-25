@@ -43,7 +43,7 @@ def train(hyp, opt, device, tb_writer=None, wandb=None):
     # Directories
     wdir = save_dir / 'weights'
     wdir.mkdir(parents=True, exist_ok=True)  # make dir
-    last = wdir / 'last.pt'
+    last = wdir / 'epoch_37_total_loss_0.09066.pt'
     best = wdir / 'best.pt'
     results_file = save_dir / 'results.txt'
 
@@ -163,7 +163,6 @@ def train(hyp, opt, device, tb_writer=None, wandb=None):
     if opt.sync_bn and cuda and rank != -1:
         model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model).to(device)
         logger.info('Using SyncBatchNorm()')
-
 
     # Exponential moving average
     ema = ModelEMA(model) if rank in [-1, 0] else None
@@ -362,7 +361,8 @@ def train(hyp, opt, device, tb_writer=None, wandb=None):
                             'wandb_id': wandb_run.id if wandb else None}
 
                 # Save last, best and delete
-                torch.save(ckpt, last)
+                ckpt_file_name = os.path.join(wdir, "epoch_%d_total_loss_%.6f.pt" % (epoch, mloss[-1]))
+                torch.save(ckpt, ckpt_file_name)
                 if best_fitness == fi:
                     torch.save(ckpt, best)
                 del ckpt
@@ -373,7 +373,7 @@ def train(hyp, opt, device, tb_writer=None, wandb=None):
         # Strip optimizers
         n = opt.name if opt.name.isnumeric() else ''
         fresults, flast, fbest = save_dir / f'results{n}.txt', wdir / f'last{n}.pt', wdir / f'best{n}.pt'
-        for f1, f2 in zip([wdir / 'last.pt', wdir / 'best.pt', results_file], [flast, fbest, fresults]):
+        for f1, f2 in zip([wdir / 'epoch_37_total_loss_0.09066.pt', wdir / 'best.pt', results_file], [flast, fbest, fresults]):
             if f1.exists():
                 os.rename(f1, f2)  # rename
                 if str(f2).endswith('.pt'):  # is *.pt

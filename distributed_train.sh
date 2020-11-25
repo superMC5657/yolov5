@@ -1,2 +1,0 @@
-export CUDA_VISIBLE_DEVICES="0,1"
-python -m torch.distributed.launch --nproc_per_node 2 --master_addr="10.20.13.116" --master_port=23456 --node_rank=0 --nnodes=1  train.py --cfg="models/yolov5m.yaml" --weights='weights/v3.1/yolov5m/pt' --data="data/bdd100k.yaml" --hyp="data/hyp.finetune.yaml" --batch-size=48 --epochs=50
