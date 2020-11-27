@@ -43,7 +43,7 @@ def init_seeds(seed=0):
 
 
 def get_latest_run(search_dir='.'):
-    # Return path to most recent 'epoch_37_total_loss_0.09066.pt' in /runs (i.e. to --resume from)
+    # Return path to most recent 'last.pt' in /runs (i.e. to --resume from)
     last_list = glob.glob(f'{search_dir}/**/last*.pt', recursive=True)
     return max(last_list, key=os.path.getctime) if last_list else ''
 
@@ -270,7 +270,9 @@ def non_max_suppression(prediction, conf_thres=0.1, iou_thres=0.6, merge=False, 
     """
 
     nc = prediction[0].shape[1] - 5  # number of classes
-    xc = prediction[..., 4] > conf_thres  # candidates
+    if type(conf_thres) == float:
+        conf_thres = [conf_thres] * (nc + 1)
+    xc = prediction[..., 4] > conf_thres[0]  # candidates
 
     # Settings
     min_wh, max_wh = 2, 4096  # (pixels) minimum and maximum box width and height
@@ -298,8 +300,24 @@ def non_max_suppression(prediction, conf_thres=0.1, iou_thres=0.6, merge=False, 
 
         # Detections matrix nx6 (xyxy, conf, cls)
         if multi_label:
-            i, j = (x[:, 5:] > conf_thres).nonzero(as_tuple=False).T
-            x = torch.cat((box[i], x[i, j + 5, None], j[:, None].float()), 1)
+            # i, j = (x[:, 5:] > conf_thres[0]).nonzero(as_tuple=False).T
+            # x = torch.cat((box[i], x[i, j + 5, None], j[:, None].float()), 1)
+            # 不同类使用不同的阈值
+            categories_x = []
+            for category in range(nc):
+                i = torch.where(x[:, category + 5] > conf_thres[category + 1])[0]
+                if i.numel():
+                    x_i = x[i]
+                    x_i = x_i[:, 5:]
+                    x_i = x_i[:, category]
+                    category_i = torch.full_like(x_i, category, dtype=torch.float32)
+                    category_x = torch.cat((box[i], x_i[:, None], category_i[:, None]), 1)
+                    categories_x.append(category_x)
+            if not categories_x:
+                continue
+            x = torch.cat(categories_x, dim=0)
+
+
         else:  # best class only
             conf, j = x[:, 5:].max(1, keepdim=True)
             x = torch.cat((box, conf, j.float()), 1)[conf.view(-1) > conf_thres]

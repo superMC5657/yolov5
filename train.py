@@ -43,7 +43,7 @@ def train(hyp, opt, device, tb_writer=None, wandb=None):
     # Directories
     wdir = save_dir / 'weights'
     wdir.mkdir(parents=True, exist_ok=True)  # make dir
-    last = wdir / 'epoch_37_total_loss_0.09066.pt'
+    last = wdir / 'last.pt'
     best = wdir / 'best.pt'
     results_file = save_dir / 'results.txt'
 
@@ -373,7 +373,7 @@ def train(hyp, opt, device, tb_writer=None, wandb=None):
         # Strip optimizers
         n = opt.name if opt.name.isnumeric() else ''
         fresults, flast, fbest = save_dir / f'results{n}.txt', wdir / f'last{n}.pt', wdir / f'best{n}.pt'
-        for f1, f2 in zip([wdir / 'epoch_37_total_loss_0.09066.pt', wdir / 'best.pt', results_file], [flast, fbest, fresults]):
+        for f1, f2 in zip([wdir / 'last.pt', wdir / 'best.pt', results_file], [flast, fbest, fresults]):
             if f1.exists():
                 os.rename(f1, f2)  # rename
                 if str(f2).endswith('.pt'):  # is *.pt

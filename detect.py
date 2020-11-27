@@ -161,6 +161,8 @@ if __name__ == '__main__':
     parser.add_argument('--name', default='exp', help='save results to project/name')
     parser.add_argument('--exist-ok', action='store_true', help='existing project/name ok, do not increment')
     opt = parser.parse_args()
+    # 不同类别不同阈值 第一为obj的阈值
+    opt.conf_thres = [0.5, 0.5, 0.2, 0.4, 0.4]
     print(opt)
 
     with torch.no_grad():

@@ -19,8 +19,8 @@ import torchvision
 
 INPUT_W = 640
 INPUT_H = 640
-CONF_THRESH = 0.1
-IOU_THRESHOLD = 0.4
+CONF_THRESH = 0.4
+IOU_THRESHOLD = 0.5
 
 
 def plot_one_box(x, img, color=None, label=None, line_thickness=None):
@@ -140,7 +140,7 @@ class YoLov5TRT(object):
         self.cfx.pop()
         # Here we use the first row of output in that batch_size = 1
         output = host_outputs[0]
-        output = output.reshape(-1,85)
+        output = output.reshape(-1, 14)
         # Do postprocess
         result_boxes, result_scores, result_classid = self.post_process(
             output, origin_h, origin_w
@@ -291,9 +291,9 @@ class myThread(threading.Thread):
 
 if __name__ == "__main__":
     # load custom plugins
-    # PLUGIN_LIBRARY = "build/libmyplugins.so"
-    # ctypes.CDLL(PLUGIN_LIBRARY)
-    engine_file_path = "weights/v3.1/yolov5m.trt"
+    PLUGIN_LIBRARY = "build/libmyplugins.so"
+    ctypes.CDLL(PLUGIN_LIBRARY)
+    engine_file_path = "build/yolov5bdd.engine"
 
     # load coco labels
 
@@ -317,8 +317,8 @@ if __name__ == "__main__":
 
     # from https://github.com/ultralytics/yolov5/tree/master/inference/images
 
-    image_dir = os.path.join( 'inference','test')
-    output_dir = os.path.join( 'inference','output')
+    image_dir = os.path.join('inference', 'kitti')
+    output_dir = os.path.join('inference', 'output')
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
     input_image_paths = [os.path.join(image_dir, _) for _ in os.listdir(image_dir)]

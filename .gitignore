@@ -244,3 +244,5 @@ crashlytics.properties
 crashlytics-build.properties
 fabric.properties
 /weights/
+/build
+/wts
