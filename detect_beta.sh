@@ -1,1 +1,1 @@
-python detect.py --img-size 640 --weights runs/train/scratch_v3_m/weights/epoch_23_total_loss_0.070505.pt --source inference/traffic --conf-thres 0.5
+python detect.py --img-size 640 --weights runs/train/scratch_v5_t/weights/epoch_16_total_loss_0.085034.pt --source inference/traffic
