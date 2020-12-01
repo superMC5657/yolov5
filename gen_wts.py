@@ -11,7 +11,7 @@ from utils.torch_utils import select_device
 # Initialize
 device = select_device('cpu')
 # Load model
-model_name = 'runs/train/scratch_v5_t/weights/epoch_16_total_loss_0.085034.pt'
+model_name = 'runs/train/scratch_v5_t/weights/epoch_154_total_loss_0.077515.pt'
 model = torch.load(model_name, map_location=device)['model'].float().half()  # load to FP16
 model.to(device).eval()
 for p in model.parameters():

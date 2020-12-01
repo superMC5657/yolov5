@@ -4,6 +4,7 @@
 # !@fileName: multi_process_camera.py
 import ctypes
 import multiprocessing as mp
+import os
 import random
 import time
 
@@ -78,11 +79,11 @@ def post_process(output, origin_h, origin_w):
     boxes = boxes[si, :]
     scores = scores[si]
     classid = classid[si]
-    # Trandform bbox from [center_x, center_y, w, h] to [x1, y1, x2, y2]
-    boxes = xywh2xyxy(origin_h, origin_w, boxes)
+
     # Do nms
     indices = torchvision.ops.nms(boxes, scores, iou_threshold=IOU_THRESHOLD).cpu()
-    result_boxes = boxes[indices, :].cpu()
+    result_boxes = boxes[indices, :]
+    result_boxes = xywh2xyxy(origin_h, origin_w, result_boxes).cpu()
     result_scores = scores[indices].cpu()
     result_classid = classid[indices].cpu()
     return result_boxes, result_scores, result_classid
@@ -108,8 +109,7 @@ def xywh2xyxy(origin_h, origin_w, x):
     return y
 
 
-def plot_one_box(x, img, color=None, label=None, line_thickness=None):
-    tl = (line_thickness or round(0.002 * (img.shape[0] + img.shape[1]) / 2) + 1)
+def plot_one_box(x, img, color=None, label=None, tl=1):
     c1, c2 = (int(x[0]), int(x[1])), (int(x[2]), int(x[3]))
     cv2.rectangle(img, c1, c2, color, thickness=tl, lineType=cv2.LINE_AA)
     if label:
@@ -194,21 +194,13 @@ def inference(q_put, q_get, engine_file_path):
             output, h, w
         )
         q_get.put((image_raw, result_boxes, result_scores, result_classid))
-        print("inference:", time.time() - inf_start)
+        print('inf_time:', time.time() - inf_start)
 
 
 class ImgStream:
-    def __init__(self, input_video_url, output_video_url):
-        self.input_video_url = input_video_url
-        self.output_video_url = output_video_url
-        input_cap = cv2.VideoCapture(input_video_url)
-
-        self.src_video_fps = input_cap.get(cv2.CAP_PROP_FPS)
-        self.video_size = (
-            int(input_cap.get(cv2.CAP_PROP_FRAME_WIDTH)),
-            int(input_cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        )
-
+    def __init__(self, input_, output_):
+        self.input_ = input_
+        self.output_ = output_
         self.categories = [
             'vehicle',
             'bicycle',
@@ -217,33 +209,67 @@ class ImgStream:
             'light',
         ]
         self.colors = [[random.randint(0, 255) for _ in range(3)] for _ in self.categories]
-        input_cap.release()
+        self.isfile = os.path.isfile(input_)
+        if self.isfile:
+            input_cap = cv2.VideoCapture(output_)
+            self.src_video_fps = input_cap.get(cv2.CAP_PROP_FPS)
+            self.video_size = (
+                int(input_cap.get(cv2.CAP_PROP_FRAME_WIDTH)),
+                int(input_cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+            )
+
+            input_cap.release()
+        else:
+            self.input_image_paths = os.listdir(input_)
+            if not os.path.exists(self.output_):
+                os.makedirs(self.output_)
 
     def queue_img_put(self, q_put):
-        input_cap = cv2.VideoCapture(self.input_video_url)
-        while True:
-            if q_put.qsize() == 10:
-                time.sleep(time_sleep_inference)
-                continue
-            pre_start = time.time()
-            is_opened, frame = input_cap.read()
-            if is_opened:
+        if self.isfile:
+            input_cap = cv2.VideoCapture(self.input_)
+            while True:
+                if q_put.qsize() == 10:
+                    time.sleep(time_sleep_inference)
+                    continue
+                pre_start = time.time()
+                is_opened, frame = input_cap.read()
+                if is_opened:
+                    image, h, w = preprocess_image(frame)
+                    q_put.put((frame, image, h, w))
+                else:
+                    break
+                print("preprocess:", time.time() - pre_start)
+            input_cap.release()
+
+        else:
+            index = 0
+            total_num = len(self.input_image_paths)
+            while True:
+                if q_put.qsize() == 10:
+                    time.sleep(time_sleep_inference)
+                    continue
+                pre_start = time.time()
+                if index >= total_num:
+                    break
+                frame = cv2.imread(os.path.join(self.input_, self.input_image_paths[index]))
                 image, h, w = preprocess_image(frame)
                 q_put.put((frame, image, h, w))
-            else:
-                q_put.put((False, False, False, False))
-                time.sleep(time_sleep_process)
-                break
-            print("preprocess:", time.time() - pre_start)
-        input_cap.release()
+                index += 1
+                print("preprocess:", time.time() - pre_start)
+
+        q_put.put((False, False, False, False))
+        time.sleep(time_sleep_process)
 
     def queue_img_get(self, q_get):
-        output_cap = cv2.VideoWriter(
-            self.output_video_url,
-            cv2.VideoWriter_fourcc(*'MJPG'),  # 编码器
-            self.src_video_fps,
-            self.video_size
-        )
+        if self.isfile:
+            output_cap = cv2.VideoWriter(
+                self.output_,
+                cv2.VideoWriter_fourcc(*'MJPG'),  # 编码器
+                self.src_video_fps,
+                self.video_size
+            )
+        else:
+            index = 0
         while True:
             if q_get.qsize() == 0:
                 time.sleep(time_sleep_post)
@@ -258,26 +284,32 @@ class ImgStream:
                     box,
                     image_raw,
                     color=self.colors[int(result_classid[i])],
-                    label="{}:{:.2f}".format(
-                        self.categories[int(result_classid[i])], result_scores[i]
-                    ),
+                    label=str(int(result_classid[i]),
+                              # label="{}:{:.2f}".format(
+                              #     self.categories[int(result_classid[i])], result_scores[i]
+                              ),
                 )
 
-            # 　Save image
-            cv2.imshow('fxxk', image_raw)
+            # Save image
+            cv2.imshow('demo', image_raw)
             k = cv2.waitKey(1)
             if k & 0xff == ord('q'):
                 break
-            output_cap.write(image_raw)
+            if self.isfile:
+                output_cap.write(image_raw)
+            else:
+                cv2.imwrite(os.path.join(self.output_, self.input_image_paths[index]), image_raw)
+                index += 1
             print("postprocess:", time.time() - post_start)
-        output_cap.release()
+        if self.isfile:
+            output_cap.release()
         cv2.destroyAllWindows()
 
 
 def run():
     origin_img_q = mp.Queue(maxsize=10)
     result_img_q = mp.Queue(maxsize=10)
-    img_stream = ImgStream('inference/video/demo.mp4', 'inference/output_video/output.avi')
+    img_stream = ImgStream('inference/minival', 'inference/output')
 
     processes = [
         mp.Process(target=img_stream.queue_img_put, args=(origin_img_q,)),

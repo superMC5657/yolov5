@@ -2,7 +2,6 @@
 An example that uses TensorRT's Python api to make inferences.
 """
 
-
 import ctypes
 import os
 import random
@@ -18,8 +17,6 @@ import tensorrt as trt
 import torch
 import torchvision
 from tqdm import tqdm
-
-
 
 INPUT_W = 640
 INPUT_H = 640
@@ -144,9 +141,11 @@ class YoLov5TRT(object):
         # Here we use the first row of output in that batch_size = 1
         output = host_outputs[0]
         # Do postprocess
+        nms_start = time.time()
         result_boxes, result_scores, result_classid = self.post_process(
             output, origin_h, origin_w
         )
+        print('nms_time:',time.time() - nms_start)
         # Draw rectangles and labels on the original image
         for i in range(len(result_boxes)):
             box = result_boxes[i]
@@ -272,11 +271,10 @@ class YoLov5TRT(object):
         boxes = boxes[si, :]
         scores = scores[si]
         classid = classid[si]
-        # Trandform bbox from [center_x, center_y, w, h] to [x1, y1, x2, y2]
-        boxes = self.xywh2xyxy(origin_h, origin_w, boxes)
         # Do nms
         indices = torchvision.ops.nms(boxes, scores, iou_threshold=IOU_THRESHOLD).cpu()
-        result_boxes = boxes[indices, :].cpu()
+        result_boxes = boxes[indices, :]
+        result_boxes = self.xywh2xyxy(origin_h, origin_w, result_boxes).cpu()
         result_scores = scores[indices].cpu()
         result_classid = classid[indices].cpu()
         return result_boxes, result_scores, result_classid
